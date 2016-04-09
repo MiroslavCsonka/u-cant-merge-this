@@ -1,13 +1,10 @@
 package controllers
 
+import models.{ApprovalsConfig, PullRequest}
 import play.api.Logger
-import play.api.Play.current
-import play.api.mvc._
-
-// you need this import to have combinators
-import play.api.db._
-import play.api.libs.json._
 import play.api.libs.functional.syntax._
+import play.api.libs.json._
+import play.api.mvc._
 
 //import play.api.Logger
 
@@ -15,24 +12,6 @@ import play.api.libs.functional.syntax._
 
 
 object Application extends Controller {
-
-  case class PullRequest(id: Double, owner: String, projectName: String) {
-    implicit val commentsReader: Reads[Comment] = (
-      (__ \ "body").read[String] and
-        (__ \ "user" \ "login").read[String]
-      ) (Comment)
-
-    def getComments: Option[List[Comment]] = {
-      val url = s"https://api.github.com/repos/$owner/$projectName/issues/$id/comments"
-      val body = scala.io.Source.fromURL(url).mkString
-      val jsComments = Json.parse(body)
-      jsComments.validate[List[Comment]].asOpt
-    }
-  }
-
-  case class ApprovalsConfig(regular_expressions: List[String], minimum: Double)
-
-  case class Comment(body: String, user: String)
 
   // POST /repos/:owner/:repo/statuses/:sha
 
@@ -45,7 +24,7 @@ object Application extends Controller {
       case _ => BadRequest("hups")
     }
   }
-  
+
   def tick = Action {
     request =>
       //    val payload: String = request.body.asJson.mkString
@@ -67,11 +46,14 @@ object Application extends Controller {
       //    }
 
       val prId = 1
-      val configReads: Reads[ApprovalsConfig] = (
-        (__ \ "approvals" \ "regular_expressions").read[List[String]] and
-          (__ \ "approvals" \ "minimum").read[Double]
-        ) (ApprovalsConfig.apply _)
-
+      implicit val configReads: Reads[ApprovalsConfig] = new Reads[ApprovalsConfig] {
+        def reads(json: JsValue): JsResult[ApprovalsConfig] = {
+          for {
+            regularExpressions <- (json \ "approvals" \ "regular_expressions").validate[List[String]]
+            minimum <- (json \ "approvals" \ "minimum").validate[Double]
+          } yield ApprovalsConfig(regularExpressions, minimum.toInt)
+        }
+      }
       val owner: String = "MiroslavCsonka"
       val projectName: String = "uCantMergeThisTestingRepo"
       val configFileName = "u-cant-merge-this.json"
@@ -133,25 +115,5 @@ object Application extends Controller {
       //    }
       Ok(body)
 
-  }
-
-  def db = Action {
-    var out = ""
-    val conn = DB.getConnection()
-    try {
-      val stmt = conn.createStatement
-
-      stmt.executeUpdate("CREATE TABLE IF NOT EXISTS ticks (tick timestamp)")
-      stmt.executeUpdate("INSERT INTO ticks VALUES (now())")
-
-      val rs = stmt.executeQuery("SELECT tick FROM ticks")
-
-      while (rs.next) {
-        out += "Read from DB: " + rs.getTimestamp("tick") + "\n"
-      }
-    } finally {
-      conn.close()
-    }
-    Ok(out)
   }
 }
