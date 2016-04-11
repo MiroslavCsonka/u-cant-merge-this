@@ -2,11 +2,10 @@ import models.{ApprovalsConfig, DecisionEngine, Comment}
 import org.scalatestplus.play._
 
 class DecisionEngineSpec extends PlaySpec {
-  val decisionEngine = new DecisionEngine
   val noComments = List()
   val positiveComment = Comment("nice", "MiroslavCsonka")
 
-  def decision(comments: List[Comment], config: ApprovalsConfig) = decisionEngine.enoughReviews(comments, config)
+  def decision(comments: List[Comment], config: ApprovalsConfig) = DecisionEngine.enoughReviews(comments, config)
 
   "DecisionEngine" must {
     "approve" when {
@@ -33,20 +32,4 @@ class DecisionEngineSpec extends PlaySpec {
       }
     }
   }
-
-  //  "A Stack" must {
-  //    "pop values in last-in-first-out order" in {
-  //      val stack = new mutable.Stack[Int]
-  //      stack.push(1)
-  //      stack.push(2)
-  //      stack.pop() mustBe 2
-  //      stack.pop() mustBe 1
-  //    }
-  //    "throw NoSuchElementException if an empty stack is popped" in {
-  //      val emptyStack = new mutable.Stack[Int]
-  //      a[NoSuchElementException] must be thrownBy {
-  //        emptyStack.pop()
-  //      }
-  //    }
-  //  }
 }
