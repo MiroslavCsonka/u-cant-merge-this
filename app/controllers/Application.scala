@@ -1,5 +1,6 @@
 package controllers
 
+import models._
 import play.api._
 import play.api.mvc._
 import play.api.cache.Cache
@@ -13,23 +14,17 @@ object Application extends Controller {
     Ok(views.html.index(null))
   }
 
-  def db = Action {
-    var out = ""
-    val conn = DB.getConnection()
-    try {
-      val stmt = conn.createStatement
+  def webhook = Action { request =>
+    val decision: Option[Boolean] = for {
+      pr <- PullRequest.buildFrom(request.body.asJson.get)
+      comments <- Comment.getBy(pr).toOption
+      config <- PullRequestConfiguration.getBy(pr.owner, pr.projectName)
+    } yield DecisionEngine.enoughReviews(comments, config)
 
-      stmt.executeUpdate("CREATE TABLE IF NOT EXISTS ticks (tick timestamp)")
-      stmt.executeUpdate("INSERT INTO ticks VALUES (now())")
+    val state = if (decision.getOrElse(false)) PullRequestState.SUCCESS else PullRequestState.FAILURE
 
-      val rs = stmt.executeQuery("SELECT tick FROM ticks")
+    val payload = PullRequestState.postState(state)
 
-      while (rs.next) {
-        out += "Read from DB: " + rs.getTimestamp("tick") + "\n"
-      }
-    } finally {
-      conn.close()
-    }
-    Ok(out)
+    Ok(payload.toString)
   }
 }
